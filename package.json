@@ -1,0 +1,19 @@
+{
+  "name": "crypto-lab",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Crypto strategy lab: backtests with fees and walk-forward validation, plus a paper-trading bot for GitHub Actions.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "data": "node scripts/fetch.js",
+    "backtest": "node scripts/backtest.js",
+    "demo": "node scripts/backtest.js --synthetic",
+    "paper": "node scripts/paper.js",
+    "robust": "node scripts/robust.js"
+  },
+  "license": "UNLICENSED"
+}

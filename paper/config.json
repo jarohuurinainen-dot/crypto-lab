@@ -1,0 +1,13 @@
+{
+  "note": "Valittu oikean backtestin (25.10.2026) perusteella: strategiat, jotka voittivat osta ja pidä -sijoittamisen walk-forward-testissä kyseisellä kolikolla.",
+  "accounts": [
+    { "id": "BTCUSDT-1d-buyHold", "symbol": "BTCUSDT", "interval": "1d", "strategy": "buyHold", "label": "BTC osta ja pidä (vertailu)", "params": {} },
+    { "id": "BTCUSDT-1d-emaTrendAtrStop", "symbol": "BTCUSDT", "interval": "1d", "strategy": "emaTrendAtrStop", "label": "BTC EMA50 + ATR-stoppi", "params": { "len": 50, "mult": 4 } },
+    { "id": "BTCUSDT-1d-macd", "symbol": "BTCUSDT", "interval": "1d", "strategy": "macd", "label": "BTC MACD 24/52/18", "params": { "fast": 24, "slow": 52, "signal": 18 } },
+    { "id": "BTCUSDT-1d-volTargetTrend", "symbol": "BTCUSDT", "interval": "1d", "strategy": "volTargetTrend", "label": "BTC trendi + volatiliteettitavoite", "params": { "len": 100, "targetVol": 0.4 } },
+    { "id": "ETHUSDT-1d-buyHold", "symbol": "ETHUSDT", "interval": "1d", "strategy": "buyHold", "label": "ETH osta ja pidä (vertailu)", "params": {} },
+    { "id": "ETHUSDT-1d-donchianBreakout", "symbol": "ETHUSDT", "interval": "1d", "strategy": "donchianBreakout", "label": "ETH Donchian 55/20", "params": { "entry": 55, "exit": 20 } },
+    { "id": "ETHUSDT-1d-volTargetTrend", "symbol": "ETHUSDT", "interval": "1d", "strategy": "volTargetTrend", "label": "ETH trendi + volatiliteettitavoite", "params": { "len": 200, "targetVol": 0.4 } },
+    { "id": "ETHUSDT-1d-macd", "symbol": "ETHUSDT", "interval": "1d", "strategy": "macd", "label": "ETH MACD 24/52/18", "params": { "fast": 24, "slow": 52, "signal": 18 } }
+  ]
+}
