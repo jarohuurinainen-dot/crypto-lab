@@ -13,7 +13,9 @@
     "backtest": "node scripts/backtest.js",
     "demo": "node scripts/backtest.js --synthetic",
     "paper": "node scripts/paper.js",
-    "robust": "node scripts/robust.js"
+    "robust": "node scripts/robust.js",
+    "portfolio": "node scripts/portfolio.js",
+    "validate": "node scripts/validate.js"
   },
   "license": "UNLICENSED"
 }

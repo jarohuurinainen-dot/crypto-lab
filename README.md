@@ -38,3 +38,10 @@ Kun oikea backtest on ajettu, kopioi `paper/config.suggested.json` tiedoston `pa
 - Valtaosa strategioista häviää osta ja pidä -sijoittamiselle kulujen jälkeen. Se on normaalia, ja juuri sen takia testataan.
 - Paras mahdollinen tulos ei yleensä ole suurempi tuotto. Se on **pienempi pudotus** samalla tuotolla: krypto voi pudota 70–90 %, ja trendisuodatin voi välttää osan siitä.
 - Oikeaa rahaa vasta, kun strategia on voittanut sekä backtestissä että vähintään 3 kuukautta paperilla. Silloinkin vain summalla, jonka menettämisen kestää.
+
+
+## Salkkutaso ja kova testaus (lisätty 2.11.)
+
+- `npm run portfolio`: vertaa yksittäisiä strategioita, 6 strategian tasapainotettua kirjaa ja kahta riskisuodatinta (volatiliteettitavoite, markkinasuodatin) osta ja pidä -strategiaan. Tulos tallentuu tiedostoon `reports/portfolio.json`.
+- `npm run validate`: kaksi tuuritestiä. Deflated Sharpe kysyy, voittaako strategia sen, minkä paras 35:stä kokeillusta strategiasta saisi pelkällä tuurilla. Parametritesti nytkäyttää asetuksia -25 ... +25 % ja katsoo, onko tulos tasanne vai piikki.
+- Molemmat vaativat datan: aja ensin `npm run data`.

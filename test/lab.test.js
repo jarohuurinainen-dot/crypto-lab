@@ -131,3 +131,100 @@ test('reports render', () => {
     assert.match(paperDashboard({ updatedAt: 'now', accounts: [] }), /Paperitreidaus/);
     assert.equal(barsPerYear(INTERVAL_MS['4h']), 2190);
 });
+
+// ---------------------------------------------------------------- portfolio layer
+import { runPortfolio, basketBuyHold, alignBars } from '../src/portfolio.js';
+
+const synth = (seed) => syntheticBars({ n: 1500, seed, startPrice: 100 });
+
+test('portfolio: equal-weight sleeves are the average of their returns and metrics exist', () => {
+    const data = { AAA: synth(1), BBB: synth(2) };
+    const sleeves = [{ id: 'a', symbol: 'AAA', strategy: 'buyHold', params: {} }, { id: 'b', symbol: 'BBB', strategy: 'buyHold', params: {} }];
+    const p = runPortfolio(data, sleeves, { from: 400 });
+    const a = runBacktest(data.AAA, 'buyHold', {}, { from: 400 });
+    const b = runBacktest(data.BBB, 'buyHold', {}, { from: 400 });
+    const i = 500;
+    const ra = a.equity[i].equity / a.equity[i - 1].equity - 1;
+    const rb = b.equity[i].equity / b.equity[i - 1].equity - 1;
+    const rp = p.equity[i].equity / p.equity[i - 1].equity - 1;
+    assert.ok(Math.abs(rp - (ra + rb) / 2) < 1e-12);
+    assert.equal(p.equity.length, a.equity.length);
+    assert.ok(p.metrics.sharpe != null && p.metrics.exposurePct > 0);
+});
+
+test('portfolio: weights are normalised and alignBars keeps common timestamps', () => {
+    const x = synth(3);
+    const y = synth(4).slice(100);
+    const al = alignBars({ X: x, Y: y }, ['X', 'Y']);
+    assert.equal(al.X.length, al.Y.length);
+    assert.equal(al.X[0].time, al.Y[0].time);
+    const p = runPortfolio({ X: x }, [{ symbol: 'X', strategy: 'buyHold', params: {}, weight: 3 }, { symbol: 'X', strategy: 'smaCross', params: { fast: 10, slow: 30 }, weight: 1 }], { from: 300 });
+    assert.equal(p.sleeves[0].weight, 0.75);
+});
+
+test('portfolio: volatility target never adds leverage and lowers risk', () => {
+    const data = { AAA: synth(5) };
+    const sl = [{ symbol: 'AAA', strategy: 'buyHold', params: {} }];
+    const base = runPortfolio(data, sl, { from: 300 });
+    const tgt = runPortfolio(data, sl, { from: 300, targetVol: 0.3 });
+    assert.ok(tgt.scales.every((s) => s >= 0 && s <= 1));
+    assert.ok(tgt.metrics.maxDrawdownPct <= base.metrics.maxDrawdownPct);
+});
+
+test('portfolio: regime gate uses the previous close (no look-ahead) and goes to cash in a downtrend', () => {
+    const down = close(Array.from({ length: 400 }, (_, i) => 1000 - i * 2));
+    const p = runPortfolio({ D: down }, [{ symbol: 'D', strategy: 'buyHold', params: {} }], { from: 250, regime: { symbol: 'D', len: 50 } });
+    assert.ok(p.scales.slice(5).every((s) => s === 0));
+    assert.ok(p.metrics.maxDrawdownPct < 1);
+    const up = close(Array.from({ length: 400 }, (_, i) => 100 + i));
+    const q = runPortfolio({ U: up }, [{ symbol: 'U', strategy: 'buyHold', params: {} }], { from: 250, regime: { symbol: 'U', len: 50 } });
+    assert.ok(q.scales.slice(5).every((s) => s === 1));
+});
+
+test('portfolio: basket benchmark runs', () => {
+    const data = { AAA: synth(6), BBB: synth(7) };
+    const b = basketBuyHold(data, ['AAA', 'BBB'], { from: 300 });
+    assert.ok(b.equity.length > 1000);
+});
+
+// ---------------------------------------------------------------- validation (luck tests)
+import { normCdf, normInv, expectedMaxSharpe, deflatedSharpe, moments, neighborhood } from '../src/validation.js';
+
+test('validation: normal distribution helpers', () => {
+    assert.ok(Math.abs(normCdf(0) - 0.5) < 1e-6);
+    assert.ok(Math.abs(normCdf(1.96) - 0.975) < 1e-3);
+    assert.ok(Math.abs(normInv(0.975) - 1.96) < 1e-3);
+    assert.ok(Math.abs(normInv(normCdf(0.7)) - 0.7) < 1e-3);
+});
+
+test('validation: more trials raise the luck benchmark; one trial has none', () => {
+    assert.equal(expectedMaxSharpe(1, 0.01), 0);
+    assert.ok(expectedMaxSharpe(100, 0.01) > expectedMaxSharpe(10, 0.01));
+    assert.ok(expectedMaxSharpe(10, 0.04) > expectedMaxSharpe(10, 0.01));
+});
+
+test('validation: deflated Sharpe falls when many strategies were tried', () => {
+    const rets = Array.from({ length: 1000 }, (_, i) => 0.001 + 0.01 * Math.sin(i * 1.7));
+    const few = deflatedSharpe(rets, [0.05, 0.02]);
+    const many = deflatedSharpe(rets, Array.from({ length: 200 }, (_, i) => -0.02 + 0.0004 * i));
+    assert.ok(many.dsr < few.dsr);
+    assert.ok(few.psr >= few.dsr);
+    assert.ok(moments(rets).n === 1000);
+});
+
+test('validation: pure noise strategy does not look significant after deflation', () => {
+    const noise = syntheticBars({ n: 1500, seed: 11, startPrice: 100 });
+    const o = { from: 300, barsPerYear: 365 };
+    const trials = Object.entries(STRATEGIES).filter(([n]) => n !== 'buyHold').flatMap(([n, s]) => s.grid.map((p) => moments(runBacktest(noise, n, p, o).equity.map((e, i, a) => (i === 0 ? e.equity / 1000 - 1 : e.equity / a[i - 1].equity - 1))).sharpe));
+    const best = Math.max(...trials);
+    const rets = Object.entries(STRATEGIES).filter(([n]) => n !== 'buyHold').flatMap(([n, s]) => s.grid.map((p) => ({ n, p, r: runBacktest(noise, n, p, o) }))).sort((a, b) => b.r.metrics.sharpe - a.r.metrics.sharpe)[0];
+    const d = deflatedSharpe(rets.r.equity.map((e, i, a) => (i === 0 ? e.equity / 1000 - 1 : e.equity / a[i - 1].equity - 1)), trials);
+    assert.ok(best > 0 && d.dsr < 0.95, `dsr ${d.dsr}`);
+});
+
+test('validation: neighborhood reports a drop for a fragile setting', () => {
+    const bars = syntheticBars({ n: 1500, seed: 21, startPrice: 100 });
+    const n = neighborhood(bars, 'smaCross', { fast: 20, slow: 50 }, { from: 300, barsPerYear: 365 });
+    assert.ok(n.neighbors.length >= 6);
+    assert.ok(n.min <= n.median);
+});
